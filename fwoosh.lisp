@@ -8,7 +8,7 @@
     (glfw:terminate)))
 
 (defun main-loop ()
-  (loop while (= 1 (glfw:get-window-param glfw:+opened+)) do
+  (loop while (/= 0 (glfw:get-window-param glfw:+opened+)) do
        (gl:clear :color-buffer :depth-buffer)
        (glfw:swap-buffers)
        (sleep (/ 60))))
