@@ -296,18 +296,18 @@
      (0 3 8 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1)
      (-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1))))
 
-(deftype cube ()
+(deftype grid-sample ()
   '(simple-array double-float (8)))
 
-(defun cube (v0 v1 v2 v3 v4 v5 v6 v7)
+(defun grid-sample (v0 v1 v2 v3 v4 v5 v6 v7)
   (make-array '(8)
               :element-type 'double-float
               :initial-contents (mapcar (lambda (x) (float x 1d0))
                                         (list v0 v1 v2 v3 v4 v5 v6 v7))))
 
-(defmacro cube-index (cube)
+(defmacro grid-sample-index (grid-sample)
   `(logior
     ,@(loop
          for i from 0 to 7
-         collecting `(ash (if (> (aref ,cube ,i) 0) 1 0)
+         collecting `(ash (if (> (aref ,grid-sample ,i) 0) 1 0)
                           ,i))))
