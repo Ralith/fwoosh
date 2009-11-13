@@ -309,5 +309,6 @@
   `(logior
     ,@(loop
          for i from 0 to 7
-         collecting `(ash (if (> (aref ,grid-sample ,i) 0) 1 0)
-                          ,i))))
+         collecting `(if (> (aref ,grid-sample ,i) 0)
+                         ,(ash 1 i)
+                         0))))
