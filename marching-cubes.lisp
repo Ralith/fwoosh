@@ -309,7 +309,7 @@
      (0d0 0d0 1d0) (1d0 0d0 1d0) (1d0 1d0 1d0) (0d0 1d0 1d0)))
   "Lists the positions, relative to vertex 0, of each of the 8 vertices of a cube")
 
-(defparameter +edge-connections+
+(defparameter +edge-connection+
   (make-array
    '(12 2)
    :element-type 'fixnum
@@ -318,6 +318,16 @@
      (4 5) (5 6) (6 7) (7 4) 
      (0 4) (1 5) (2 6) (3 7)))
   "Lists the index of the endpoint vertices for each of the 12 edges of a cube")
+
+(defparameter +edge-direction+
+  (make-array
+   '(12 3)
+   :element-type 'double-float
+   :initial-contents
+   '((1d0 0d0 0d0) (0d0 1d0 0d0) (-1d0 0d0 0d0) (0d0 -1d0 0d0)
+     (1d0 0d0 0d0) (0d0 1d0 0d0) (-1d0 0d0 0d0) (0d0 -1d0 0d0)
+     (0d0 0d0 1d0) (0d0 0d0 1d0) ( 0d0 0d0 1d0) (0d0  0d0 1d0)))
+  "Lists the direction vector (vertex1-vertex0) for each edge in the cube")
 
 (deftype grid-sample ()
   '(simple-array double-float (8)))

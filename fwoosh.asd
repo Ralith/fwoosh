@@ -3,5 +3,5 @@
   :depends-on (#:cl-opengl #:cl-glfw #:cffi)
   :components
   ((:file "package")
-   (:file "fwoosh" :depends-on ("package"))
-   (:file "marching-cubes" :depends-on ("package"))))
+   (:file "utils" :depends-on ("package"))
+   (:file "fwoosh" :depends-on ("package"))))
