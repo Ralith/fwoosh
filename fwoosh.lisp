@@ -5,13 +5,10 @@
   (format t "Resizing to ~ax~a~%" width height)
   (gl:matrix-mode :projection)
   (gl:load-identity)
-  (let ((x (/ width 2))
-        (y (/ height 2)))
-    (gl:viewport 0 0 width height)
-    (gl:ortho (- x) x (- y) y -1 1))
+  (glu:perspective 45 (/ width height) 1 200)
   (gl:matrix-mode :modelview))
 
-(defun fwoosh ()
+(defun main ()
   (glfw:with-init
     (glfw:with-open-window ("fwoosh" 0 0 0 0 0 0 16)
       (glfw:set-window-size-callback (cffi:callback resize-handler))
@@ -25,11 +22,20 @@
 (defun main-loop ()
   (loop while (/= 0 (glfw:get-window-param glfw:+opened+)) do
        (gl:clear :color-buffer :depth-buffer)
-       (gl:with-primitive :polygon
-         (gl:color 0 1 0)
-         (gl:vertex -100 -100 0)
-         (gl:vertex 100 -100 0)
-         (gl:vertex 100 100 0)
-         (gl:vertex -100 100 0))
+       (gl:with-pushed-matrix
+         (gl:load-identity)
+         (gl:with-primitive :quad-strip
+           (mapc (lambda (args) (apply #'gl:vertex args))
+                 ;; front/back top/bottom left/right
+                 '((-10 -10 -10)        ;BBL
+                   (-10  10 -10)        ;BTL
+                   ( 10 -10 -10)        ;BBR
+                   ( 10  10 -10)        ;BTR
+                   ( 10 -10  10)        ;FBR
+                   ( 10  10  10)        ;FTR
+                   (-10 -10  10)        ;FBL
+                   (-10  10  10)        ;FTL
+                   (-10 -10 -10)        ;BBL
+                   (-10  10 -10)))))    ;BTL
        (glfw:swap-buffers)
        (sleep (/ 60))))
