@@ -1,6 +1,6 @@
 (asdf:defsystem fwoosh
   :maintainer "Benjamin Saunders"
-  :depends-on (#:cl-opengl #:cl-glfw #:cffi)
+  :depends-on (:cl-opengl :cl-glu :cl-glfw :cffi)
   :components
   ((:file "package")
    (:file "utils" :depends-on ("package"))
