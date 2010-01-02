@@ -12,12 +12,13 @@
   (glfw:with-init
     (glfw:with-open-window ("fwoosh" 0 0 0 0 0 0 16)
       (glfw:set-window-size-callback (cffi:callback resize-handler))
-      (init-resources)
+      (init)
       (main-loop))))
 
-(defun init-resources ()
+(defun init ()
   (format t "OpenGL version ~a~%" (gl:get-string :version))
-  (gl:clear-color 0 0 0 0))
+  (gl:clear-color 0 0 0 0)
+  (gl:translate 0 0 100))
 
 (defun main-loop ()
   (loop while (/= 0 (glfw:get-window-param glfw:+opened+)) do
