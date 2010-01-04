@@ -4,4 +4,6 @@
   :components
   ((:file "package")
    (:file "utils" :depends-on ("package"))
+   (:file "alias-method" :depends-on ("package"))
+   (:file "weapon-gen" :depends-on ("package" "alias-method" "utils"))
    (:file "fwoosh" :depends-on ("package"))))
