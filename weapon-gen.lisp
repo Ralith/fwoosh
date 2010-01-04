@@ -1,6 +1,6 @@
 (in-package :fwoosh)
 
-;;; TODO: Modifier-based generator, classification system, naming system
+;;; TODO: Derivation of name, class?, weight, rate of fire?, accuracy, recoil
 ;;; Should light/heavy guns take the same ammo?
 
 (defun normal-random (mean standard-deviation &optional (state *random-state*))
@@ -10,32 +10,77 @@
         (cos (* 2 pi (random 1.0 state)))
         standard-deviation)))
 
-(defparameter *gun-parts*
-  '(:caliber :barrel-length :magazine-size)
-  (flet ((dist (gaussians &rest post-processors)
-           "Takes a list of (weight mean std-dev)s for normal distributions"
-           (let ((selector (make-discrete-random-var
-                            (apply #'vector (mapcar #'first gaussians)))))
-             #'(lambda ()
-                 (reduce #'funcall post-processors
-                         :initial-value (apply #'normal-random (rest (nth (funcall selector) gaussians)))
-                         :from-end t)))))
-    `((:caliber ,(dist '((3/4 6 1) (1/4 12 2)) ; units: mm
-                       (fun (max 2 _))))
-      (:barrel-length ,(dist '((1/3 100 30) (1/3 300 100) (1/3 500 200)) ; units: mm
-                             (fun (max 30 _))))
-      (:magazine-size ,(dist '((1/3 6 3) (1/3 30 10) (1/6 100 25) (1/6 200 50)) ; units: bullets
-                             (fun (max 1 _))
-                             #'truncate)))))
+;;; (modifier weight (attribute #'(lambda (old change) ...) #'make-change)*)
+(defparameter *gun-modifiers*
+  (macrolet ((modifier (name probability &body params)
+               (declare (ignore name))
+               `(list ,probability ,@(mapcar (fun (cons 'list _))
+                                             params)))
+             (dist (&rest distributions)
+               (let ((literal `(list ,@(mapcar (fun (cons 'list _))
+                                               distributions))))
+                 (if (> (length distributions) 1)
+                     `(let ((selector (make-discrete-random-var ,(apply #'vector (mapcar #'first distributions)))))
+                        #'(lambda () (apply #'normal-random
+                                            (rest (nth (funcall selector)
+                                                       ,literal)))))
+                     `#'(lambda () (apply #'normal-random (rest (first ,literal))))))))
+    (list (modifier "Base/Pistol" 1
+                    (:caliber #'+ (dist (1 6 1)))
+                    (:magazine-size #'+ (dist (2/3 7 2) (1/3 10 3)))
+                    (:barrel-length #'+ (dist (1 100 10))))
+          (modifier "Magazine" 1/2
+                    (:magazine-size #'+ (dist (1 25 5))))
+          (modifier "Rifle" 1/4
+                    (:barrel-length #'+ (dist (4/5 400 100)
+                                              (1/5 800 200))))
+          (modifier "Automatic" 1/6
+                    (:magazine-size #'+ (dist (2/3 100 25)
+                                              (1/3 200 50)))
+                    (:barrel-length #'+ (dist (1 200 50))))
+          (modifier "Heavy" 1/6
+                    (:caliber #'+ (dist (1 12 2)))
+                    (:magazine-size #'/ (dist (1 2 1)))))) ;TODO: use a logarithm instead
+  "A list of variously probable sets of probability distribution samplers each associated with one or more gun attributes.") 
 
-(defun sanify-gun (gun)
-  (when (> (getf gun :magazine-size) 20)
-    (incf (getf gun :barrel-length) (max 0 (normal-random 100 30))))
-  gun)
+(defparameter *gun-postprocessor*
+  (flet ((round-multiple (value factor)
+           (* factor (round value factor))))
+   `((:caliber . ,(fun (max 3 _)))
+     (:barrel-length . ,(fun (max 40 _)))
+     (:magazine-size . ,(fun (cond
+                               ((< _ 30) (max 1 (round _)))
+                               ((< _ 80) (round-multiple _ 5))
+                               (t (round-multiple _ 10)))))))
+  "An alist associating gun attributes with post-processor functions.")
 
-(defun make-gun ()
-  (sanify-gun (apply #'append
-                     (mapcar (lambda (attrib)
-                               (list (first attrib)
-                                     (funcall (second attrib))))
-                             *gun-parts*))))
+(defun make-gun (modifiers post-processor &aux gun)
+  ;; Build gun by sequential application of modifiers
+  (loop for (probability . clauses) in modifiers
+     when (<= (random 1.0) probability)
+     do (loop for (attrib operator randomizer) in clauses
+           ;; All parameters start at 0
+           do (pushnew (cons attrib 0) gun
+                       :key #'car)
+             (let ((cell (assoc attrib gun)))
+               (setf (cdr cell)
+                     (funcall operator
+                              (cdr cell) (funcall randomizer))))))
+  ;; Sanify gun
+  (loop for cell in gun
+     do (setf (cdr cell) (funcall (cdr (assoc (car cell) post-processor)) (cdr cell)))
+     finally (return gun)))
+
+(defun caliber (gun)
+  (cdr (assoc :caliber gun)))
+(defun magazine-size (gun)
+  (cdr (assoc :magazine-size gun)))
+(defun barrel-length (gun)
+  (cdr (assoc :barrel-length gun)))
+
+;;; TODO: with-slots
+(defun classify-gun (gun &aux class)
+  (push (cond ((> (caliber gun) 10) 'heavy)
+              ((> (caliber gun) 6) 'medium)
+              (t 'light))
+        class))
