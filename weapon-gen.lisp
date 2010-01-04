@@ -15,8 +15,7 @@
 
 (define-print-object (gun)
   (with-slots (caliber barrel-length magazine-size firing-rate) gun
-        (format t "Caliber: ~a, Barrel length: ~a, Magazine size: ~a, Firing rate: ~a"
-                caliber barrel-length magazine-size firing-rate)))
+        (format t "~a" (tag-gun gun))))
 
 ;;; TODO: Derivation of weight, accuracy, recoil
 ;;; Should light/heavy guns take the same ammo?
@@ -50,11 +49,11 @@
                     (firing-rate #'+ (dist (2/3 5 2) (1/3 10 3))))
           (modifier "Magazine" 1/2
                     (magazine-size #'+ (dist (1 20 5))))
-          (modifier "Rifle" 1/4
-                    (barrel-length #'+ (dist (1/3 100 50)
-                                             (1/3 500 100)
-                                             (1/3 700 200))))
-          (modifier "Automatic" 1/6
+          (modifier "Rifle" 1/2
+                    (barrel-length #'+ (dist (1/4 100 50)
+                                             (2/4 500 100)
+                                             (1/4 700 200))))
+          (modifier "Automatic" 1/3
                     (magazine-size #'+ (dist (2/3 100 25)
                                              (1/3 200 50)))
                     (barrel-length #'+ (dist (1 200 50)))
@@ -99,7 +98,7 @@
     (setf recoil (/ (* caliber muzzle-velocity) mass 100))
     gun))
 
-(defun generate-gun-tags (gun &aux tags)
+(defun tag-gun (gun &aux tags)
   (with-slots (caliber barrel-length magazine-size firing-rate) gun
     (macrolet ((tag (&rest clauses)
                  `(let ((new-tag
