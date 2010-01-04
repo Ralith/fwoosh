@@ -1,17 +1,24 @@
 (in-package :fwoosh)
 
 (defclass gun ()
-  ((caliber :initform 0 :initarg :caliber :accessor caliber)
+  (
+   ;; Randomized values
+   (caliber :initform 0 :initarg :caliber :accessor caliber)
    (barrel-length :initform 0 :initarg :barrel-length :accessor barrel-length)
    (magazine-size :initform 0 :initarg :magazine-size :accessor magazine-size)
-   (firing-rate :initform 0 :initarg :firing-rate :accessor firing-rate)))
+   (firing-rate :initform 0 :initarg :firing-rate :accessor firing-rate)
+   ;; Derived values
+   (muzzle-velocity :initform 0 :initarg :muzzle-velocity :accessor muzzle-velocity)
+   (accuracy :initform 0 :initarg :accuracy :accessor accuracy) ;radians
+   (mass :initform 0 :initarg :mass :accessor mass) ;grams
+   (recoil :initform 0 :initarg :recoil :accessor recoil))) ;radians
 
 (define-print-object (gun)
   (with-slots (caliber barrel-length magazine-size firing-rate) gun
         (format t "Caliber: ~a, Barrel length: ~a, Magazine size: ~a, Firing rate: ~a"
                 caliber barrel-length magazine-size firing-rate)))
 
-;;; TODO: Derivation of name, class?, weight, rate of fire?, accuracy, recoil
+;;; TODO: Derivation of weight, accuracy, recoil
 ;;; Should light/heavy guns take the same ammo?
 
 (defun normal-random (mean standard-deviation &optional (state *random-state*))
@@ -21,7 +28,7 @@
         (cos (* 2 pi (random 1.0 state)))
         standard-deviation)))
 
-;;; (modifier weight (attribute #'(lambda (old change) ...) #'make-change)*)
+;;; TODO: Make these pure data.
 (defparameter *gun-modifiers*
   (macrolet ((modifier (name probability &body params)
                (declare (ignore name))
@@ -71,7 +78,8 @@
   "An alist associating gun attributes with post-processor functions.")
 
 (defun generate-gun (modifiers post-processor &aux (gun (make-instance 'gun)))
-  (with-slots (caliber barrel-length magazine-size) gun
+  (with-slots (caliber barrel-length magazine-size muzzle-velocity accuracy mass recoil)
+      gun
     ;; Build gun by sequential application of modifiers
     (loop for (probability . clauses) in modifiers
        when (<= (random 1.0) probability)
@@ -82,10 +90,15 @@
                                (slot-value gun slot) (funcall randomizer)))))
     ;; Sanify gun
     (loop for (slot . function) in post-processor
-       do (setf (slot-value gun slot) (funcall function (slot-value gun slot)))
-       finally (return gun))))
+       do (setf (slot-value gun slot) (funcall function (slot-value gun slot))))
+    ;; Calculate derived values.  TODO: Randomness?
+    (setf muzzle-velocity (+ 700 (/ barrel-length 2)))
+    (setf accuracy (/ pi 8 (/ barrel-length 100)))
+    (setf mass (+ (* caliber magazine-size)
+                  (/ barrel-length 3)))
+    (setf recoil (/ (* caliber muzzle-velocity) mass 100))
+    gun))
 
-;;; TODO: with-slots
 (defun generate-gun-tags (gun &aux tags)
   (with-slots (caliber barrel-length magazine-size firing-rate) gun
     (macrolet ((tag (&rest clauses)
@@ -96,7 +109,7 @@
                     (when new-tag
                       (push new-tag tags)))))
       (tag (> barrel-length 800) :long-rifle
-           (> barrel-length 500) :rifle
+           (> barrel-length 400) :rifle
            (> barrel-length 150) :carbine
            t                     :pistol)
       (tag (and (> magazine-size 15)
