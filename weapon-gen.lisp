@@ -10,7 +10,7 @@
    ;; Derived values
    (muzzle-velocity :initform 0 :initarg :muzzle-velocity :accessor muzzle-velocity)
    (accuracy :initform 0 :initarg :accuracy :accessor accuracy) ;radians
-   (mass :initform 0 :initarg :mass :accessor mass) ;grams
+   (mass :initform 0 :initarg :mass :accessor mass) ;kilograms
    (recoil :initform 0 :initarg :recoil :accessor recoil))) ;radians
 
 (define-print-object (gun)
@@ -91,11 +91,15 @@
     (loop for (slot . function) in post-processor
        do (setf (slot-value gun slot) (funcall function (slot-value gun slot))))
     ;; Calculate derived values.  TODO: Randomness?
+    ;; TODO: Data-driven
     (setf muzzle-velocity (+ 700 (/ barrel-length 2)))
     (setf accuracy (/ pi 8 (/ barrel-length 100)))
-    (setf mass (+ (* caliber magazine-size)
-                  (/ barrel-length 3)))
-    (setf recoil (/ (* caliber muzzle-velocity) mass 100))
+    (setf mass (/ (+ (* caliber magazine-size 5)
+                     barrel-length)
+                  100))
+    (setf recoil (/ (* caliber muzzle-velocity (/ barrel-length 100))
+                    mass
+                    100))
     gun))
 
 (defun tag-gun (gun &aux tags)
@@ -117,3 +121,8 @@
       (tag (> caliber 10) :heavy
            (> caliber 6)  :medium
            t              :light))))
+
+(defun describe-gun (gun &optional (stream *standard-output*))
+  (with-slots (caliber barrel-length magazine-size muzzle-velocity accuracy mass recoil)
+      gun
+    (format stream "A ~{~a ~}having caliber ~4,2f mm, a barrel ~4,2f mm long, a magazine holding ~a rounds, with a muzzle velocity of ~4,2f m/s, standard divergence of ~4,2f radians, weighing ~4,2f kg, and recoiling ~4,2f radians." (tag-gun gun) caliber barrel-length magazine-size muzzle-velocity accuracy mass recoil)))
