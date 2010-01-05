@@ -115,17 +115,20 @@
                                     collecting (list condition tag)))))
                     (when new-tag
                       (push new-tag tags)))))
-      (tag (> barrel-length 800) :long-rifle
+      (tag (> barrel-length 800) :sniper
            (> barrel-length 400) :rifle
            (> barrel-length 150) :carbine
-           t                     :pistol)
-      (tag (and (> magazine-size 15)
-                (> firing-rate 10)) :machine
-           (and (> magazine-size 15)
-                (> firing-rate 5)) :automatic)
-      (tag (> caliber 10) :heavy
+           (> barrel-length 50)  :pistol
+           t                     :derringer)
+      (when (> magazine-size 15)
+        (tag (> firing-rate 15) :spammy
+             (> firing-rate 10) :machine
+             (> firing-rate 5)  :automatic))
+      (tag (> caliber 15) :slab
+           (> caliber 10) :heavy
            (> caliber 6)  :medium
-           t              :light))))
+           (> caliber 3)  :light
+           t              :toothpick))))
 
 (defun describe-gun (gun &optional (stream *standard-output*))
   (with-slots (caliber barrel-length magazine-size firing-rate muzzle-velocity accuracy mass recoil)
