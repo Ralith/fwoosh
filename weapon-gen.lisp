@@ -11,7 +11,7 @@
    (muzzle-velocity :initform 0 :initarg :muzzle-velocity :accessor muzzle-velocity)
    (accuracy :initform 0 :initarg :accuracy :accessor accuracy) ;radians
    (mass :initform 0 :initarg :mass :accessor mass) ;kilograms
-   (recoil :initform 0 :initarg :recoil :accessor recoil))) ;newton-seconds
+   (recoil :initform 0 :initarg :recoil :accessor recoil))) ;kilonewton-seconds
 
 (define-print-object (gun)
   (with-slots (caliber barrel-length magazine-size firing-rate) gun
@@ -43,7 +43,7 @@
                                                        ,literal)))))
                      `#'(lambda () (apply #'normal-random (rest (first ,literal))))))))
     (list (modifier "Base/Pistol" 1
-                    (caliber #'+ (dist (1 6 1)))
+                    (caliber #'+ (dist (2/3 6 1) (1/3 7 1)))
                     (magazine-size #'+ (dist (2/3 7 2) (1/3 10 3)))
                     (barrel-length #'+ (dist (1 80 10)))
                     (firing-rate #'+ (dist (2/3 5 2) (1/3 10 3))))
@@ -60,7 +60,7 @@
                     (firing-rate #'+ (dist (1 5 2))))
           (modifier "Heavy" 1/6
                     (caliber #'+ (dist (1 12 2)))
-                    (magazine-size #'/ (dist (1 2 1))) ;TODO: use a logarithm instead
+                    (magazine-size #'/ (dist (1 3 1))) ;TODO: use a logarithm instead
                     (firing-rate #'/ (dist (1 3 1))))))
   "A list of variously probable sets of probability distribution samplers each associated with one or more gun attributes.") 
 
@@ -70,7 +70,7 @@
     (magazine-size . ,(fun (flet ((round-multiple (value factor)
                                     (* factor (round value factor))))
                              (cond
-                               ((< _ 30) (max 1 (round _)))
+                               ((< _ 30) (max 0 (round _)))
                                ((< _ 80) (round-multiple _ 5))
                                (t (round-multiple _ 10))))))
     (firing-rate . ,(fun (max 1 _))))
@@ -92,12 +92,18 @@
        do (setf (slot-value gun slot) (funcall function (slot-value gun slot))))
     ;; Calculate derived values.  TODO: Randomness?
     ;; TODO: Data-driven
-    (setf muzzle-velocity (+ 700 (/ barrel-length 2)))
-    (setf accuracy (/ pi 8 (/ barrel-length 50)))
-    (setf mass (/ (+ (* caliber magazine-size 5)
-                     barrel-length)
-                  100))
-    (setf recoil (* caliber muzzle-velocity))
+    (macrolet ((twiddle (slot)
+                 `(setf ,slot (max 0 (normal-random ,slot (/ ,slot 10))))))
+      (setf muzzle-velocity (+ 700 (/ barrel-length 2)))
+      (twiddle muzzle-velocity)
+      (setf accuracy (/ pi 8 (/ barrel-length 30)))
+      (twiddle accuracy)
+      (setf mass (/ (+ (* caliber magazine-size 5)
+                      (* barrel-length 3))
+                   100))
+      (twiddle mass)
+      (setf recoil (/ (* caliber muzzle-velocity) 1000))
+      (twiddle recoil))
     gun))
 
 (defun tag-gun (gun &aux tags)
@@ -123,4 +129,4 @@
 (defun describe-gun (gun &optional (stream *standard-output*))
   (with-slots (caliber barrel-length magazine-size muzzle-velocity accuracy mass recoil)
       gun
-    (format stream "A ~{~a ~}having caliber ~4,2f mm, a barrel ~4,2f mm long, a magazine holding ~a rounds, with a muzzle velocity of ~4,2f m/s, standard divergence of ~4,2f radians, weighing ~4,2f kg, and recoiling with ~4,2f newton-seconds." (tag-gun gun) caliber barrel-length magazine-size muzzle-velocity accuracy mass recoil)))
+    (format stream "A ~{~a ~}having caliber ~4,2f mm, a barrel ~4,2f mm long, firing ~a rounds per reload, with a muzzle velocity of ~4,2f m/s, standard divergence of ~4,2f radians, massing ~4,2f kg, and recoiling with ~4,2f kilonewton-seconds." (tag-gun gun) caliber barrel-length magazine-size muzzle-velocity accuracy mass recoil)))
