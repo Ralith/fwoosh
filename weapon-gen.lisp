@@ -60,7 +60,7 @@
                     (firing-rate #'+ (dist (1 5 2))))
           (modifier "Heavy" 1/6
                     (caliber #'+ (dist (1 12 2)))
-                    (magazine-size #'/ (dist (1 3 1))) ;TODO: use a logarithm instead
+                    (magazine-size #'/ (dist (1 4 1))) ;TODO: use a logarithm instead
                     (firing-rate #'/ (dist (1 3 1))))))
   "A list of variously probable sets of probability distribution samplers each associated with one or more gun attributes.") 
 
@@ -98,9 +98,8 @@
       (twiddle muzzle-velocity)
       (setf accuracy (/ pi 8 (/ barrel-length 30)))
       (twiddle accuracy)
-      (setf mass (/ (+ (* caliber magazine-size 5)
-                      (* barrel-length 3))
-                   100))
+      (setf mass (+ (/ (* caliber (/ barrel-length 100)) 10)
+                    (/ magazine-size 50)))
       (twiddle mass)
       (setf recoil (/ (* caliber muzzle-velocity) 1000))
       (twiddle recoil))
@@ -127,6 +126,6 @@
            t              :light))))
 
 (defun describe-gun (gun &optional (stream *standard-output*))
-  (with-slots (caliber barrel-length magazine-size muzzle-velocity accuracy mass recoil)
+  (with-slots (caliber barrel-length magazine-size firing-rate muzzle-velocity accuracy mass recoil)
       gun
-    (format stream "A ~{~a ~}having caliber ~4,2f mm, a barrel ~4,2f mm long, firing ~a rounds per reload, with a muzzle velocity of ~4,2f m/s, standard divergence of ~4,2f radians, massing ~4,2f kg, and recoiling with ~4,2f kilonewton-seconds." (tag-gun gun) caliber barrel-length magazine-size muzzle-velocity accuracy mass recoil)))
+    (format stream "A ~{~a ~}having caliber ~4,2f mm, a barrel ~4,2f mm long, firing ~a rounds per reload at ~4,2f rounds per second, with a muzzle velocity of ~4,2f m/s, standard divergence of ~4,2f radians, massing ~4,2f kg, and recoiling with ~4,2f kilonewton-seconds." (tag-gun gun) caliber barrel-length magazine-size firing-rate muzzle-velocity accuracy mass recoil)))
