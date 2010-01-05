@@ -59,7 +59,7 @@
                     (barrel-length #'+ (dist (1 200 50)))
                     (firing-rate #'+ (dist (1 5 2))))
           (modifier "Heavy" 1/6
-                    (caliber #'+ (dist (1 12 2)))
+                    (caliber #'+ (dist (1 8 2)))
                     (magazine-size #'/ (dist (1 4 1))) ;TODO: use a logarithm instead
                     (firing-rate #'/ (dist (1 3 1))))))
   "A list of variously probable sets of probability distribution samplers each associated with one or more gun attributes.") 
