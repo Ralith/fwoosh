@@ -97,7 +97,7 @@
                  `(setf ,slot (max 0 (normal-random ,slot (/ ,slot 10))))))
       (setf muzzle-velocity (+ 700 (/ barrel-length 2)))
       (twiddle muzzle-velocity)
-      (setf accuracy (/ pi 8 (/ barrel-length 30)))
+      (setf accuracy (/ pi 16 (/ barrel-length 200) (/ caliber 4)))
       (twiddle accuracy)
       (setf mass (+ (/ (* caliber (/ barrel-length 100)) 10)
                     (/ magazine-size 50)))
@@ -124,7 +124,7 @@
         (tag (> firing-rate 15) :spammy
              (> firing-rate 10) :machine
              (> firing-rate 5)  :automatic))
-      (tag (> caliber 15) :slab
+      (tag (> caliber 15) :cannon
            (> caliber 10) :heavy
            (> caliber 6)  :medium
            (> caliber 3)  :light
