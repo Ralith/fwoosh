@@ -120,7 +120,8 @@
            t                     :pistol)
       (tag (and (> magazine-size 15)
                 (> firing-rate 10)) :machine
-           (> magazine-size 15) :automatic)
+           (and (> magazine-size 15)
+                (> firing-rate 5)) :automatic)
       (tag (> caliber 10) :heavy
            (> caliber 6)  :medium
            t              :light))))
