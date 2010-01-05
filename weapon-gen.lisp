@@ -48,7 +48,8 @@
                     (barrel-length #'+ (dist (1 80 10)))
                     (firing-rate #'+ (dist (2/3 5 2) (1/3 10 3))))
           (modifier "Magazine" 1/2
-                    (magazine-size #'+ (dist (1 20 5))))
+                    (magazine-size #'+ (dist (1 20 5)))
+                    (firing-rate #'+ (dist (1 5 2))))
           (modifier "Rifle" 1/3
                     (barrel-length #'+ (dist (1/4 100 50)
                                              (2/4 500 100)
