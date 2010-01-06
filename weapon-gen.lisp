@@ -17,9 +17,6 @@
   (with-slots (caliber barrel-length magazine-size firing-rate) gun
         (format t "~a" (tag-gun gun))))
 
-;;; TODO: Derivation of weight, accuracy, recoil
-;;; Should light/heavy guns take the same ammo?
-
 (defun normal-random (mean standard-deviation &optional (state *random-state*))
   "Performs a Box-Muller transform on CL:RANDOM"
   (+ mean
@@ -27,43 +24,73 @@
         (cos (* 2 pi (random 1.0 state)))
         standard-deviation)))
 
+(defmacro with-dists ((&rest clauses) &body body)
+  (let ((names (loop repeat (length clauses) collecting (gensym))))
+   `(let (,@(loop for (name . distributions) in clauses
+               for i from 0
+               collecting `(,(nth i names) (make-discrete-random-var ,(apply #'vector (mapcar #'first distributions))))))
+      (symbol-macrolet (,@(loop for name in (mapcar #'first clauses)
+                               for i from 0
+                               collecting `(,name (apply #'normal-random (rest (nth (funcall ,(nth i names)) ',(rest (assoc name clauses))))))))
+        ,@body))))
+
 ;;; TODO: Make these pure data.
 (defparameter *gun-modifiers*
-  (macrolet ((modifier (name probability &body params)
+  (macrolet ((modifier (name probability &body effects)
                (declare (ignore name))
-               `(list ,probability ,@(mapcar (fun `(list (quote ,(first _)) ,@(rest _)))
-                                             params)))
-             (dist (&rest distributions)
-               (let ((literal `(list ,@(mapcar (fun `(list ,@_))
-                                               distributions))))
-                 (if (> (length distributions) 1)
-                     `(let ((selector (make-discrete-random-var ,(apply #'vector (mapcar #'first distributions)))))
-                        #'(lambda () (apply #'normal-random
-                                            (rest (nth (funcall selector)
-                                                       ,literal)))))
-                     `#'(lambda () (apply #'normal-random (rest (first ,literal))))))))
-    (list (modifier "Base/Pistol" 1
-                    (caliber #'+ (dist (2/3 6 1) (1/3 7 1)))
-                    (magazine-size #'+ (dist (2/3 7 2) (1/3 10 3)))
-                    (barrel-length #'+ (dist (1 80 10)))
-                    (firing-rate #'+ (dist (2/3 5 2) (1/3 10 3))))
+               `(list ,probability
+                      ,@(loop for (slot dists function) in effects
+                           collecting `(cons ',slot (with-dists ,dists
+                                                      (fun ,function)))))))
+    (list (modifier "Base" 1
+                    (caliber ((d (1 6 2)))
+                             (+ _ d))
+                    (magazine-size ((d (2/3 7 2) (1/3 10 3)))
+                                   (+ _ d))
+                    (barrel-length ((d (1 70 20)))
+                                   (+ _ d))
+                    (firing-rate ((d (2/3 3 1) (1/3 7 2)))
+                                 (+ _ d)))
           (modifier "Magazine" 1/2
-                    (magazine-size #'+ (dist (1 20 5)))
-                    (firing-rate #'+ (dist (1 5 2))))
-          (modifier "Rifle" 1/3
-                    (barrel-length #'+ (dist (1/4 100 50)
-                                             (2/4 500 100)
-                                             (1/4 700 200))))
+                    (magazine-size ((d (1 20 5)))
+                                   (+ _ d))
+                    (firing-rate ((d (1 5 2)))
+                                 (+ _ d)))
+          (modifier "Carbine" 1/4
+                    (barrel-length ((d (1 200 50)))
+                                   (+ _ d))
+                    (magazine-size ((d (1 20 5)))
+                                   (+ _ d))
+                    (firing-rate ((d (1 5 2)))
+                                 (+ _ d)))
           (modifier "Automatic" 1/3
-                    (magazine-size #'+ (dist (2/3 100 25)
-                                             (1/3 200 50)))
-                    (barrel-length #'+ (dist (1 200 50)))
-                    (firing-rate #'+ (dist (1 5 2))))
+                    (magazine-size ((d (1 4 2)))
+                                   (* _ (max 1 d)))
+                    (barrel-length ((d (1 200 50)))
+                                   (+ _ d))
+                    (firing-rate ((d (1 5 2)))
+                                 (+ _ d)))
+          (modifier "Rifle" 1/4
+                    (barrel-length ((d (1/2 400 100)
+                                       (1/2 600 50)))
+                                   (+ _ d))
+                    (magazine-size ((d (2/3 5 2)
+                                       (1/3 10 4)))
+                                   (+ _ d)))
+          (modifier "Sniper" 1/6
+                    (barrel-length ((d (1 700 200)))
+                                   (+ (/ _ 2) d))
+                    (magazine-size ((d (1 2 1)))
+                                   (log _ (max 1.5 d)))
+                    (firing-rate ((d (1 2 1)))
+                                 (log _ (max 1.5 d))))
           (modifier "Heavy" 1/6
-                    (caliber #'+ (dist (1 6 2)))
-                    (magazine-size #'/ (dist (1 4 1))) ;TODO: use a logarithm instead
-                    (firing-rate #'/ (dist (1 3 1))))))
-  "A list of variously probable sets of probability distribution samplers each associated with one or more gun attributes.") 
+                    (caliber ((d (1 8 2)))
+                             (+ _ d))
+                    (magazine-size ((d (1 2 1)))
+                                   (log _ (max 1.5 d)))
+                    (firing-rate ((d (1 2 1)))
+                                 (log _ (max 1.5 d)))))))
 
 (defparameter *gun-postprocessor*
   `((caliber . ,(fun (max 3 _)))
@@ -74,7 +101,7 @@
                                ((< _ 30) (max 0 (round _)))
                                ((< _ 80) (round-multiple _ 5))
                                (t (round-multiple _ 10))))))
-    (firing-rate . ,(fun (max 1 _))))
+    (firing-rate . ,(fun (max 1/2 _))))
   "An alist associating gun attributes with post-processor functions.")
 
 (defun generate-gun (modifiers post-processor &aux (gun (make-instance 'gun)))
@@ -83,11 +110,10 @@
     ;; Build gun by sequential application of modifiers
     (loop for (probability . clauses) in modifiers
        when (<= (random 1.0) probability)
-       do (loop for (slot operator randomizer) in clauses
+       do (loop for (slot . function) in clauses
              ;; All parameters start at 0
              do (setf (slot-value gun slot)
-                      (funcall operator
-                               (slot-value gun slot) (funcall randomizer)))))
+                      (funcall function (slot-value gun slot)))))
     ;; Sanify gun
     (loop for (slot . function) in post-processor
        do (setf (slot-value gun slot) (funcall function (slot-value gun slot))))
@@ -133,4 +159,4 @@
 (defun describe-gun (gun &optional (stream *standard-output*))
   (with-slots (caliber barrel-length magazine-size firing-rate muzzle-velocity accuracy mass recoil)
       gun
-    (format stream "A ~{~a ~}having caliber ~4,2f mm, a barrel ~4,2f mm long, firing ~a rounds per reload at ~4,2f rounds per second, with a muzzle velocity of ~4,2f m/s, standard divergence of ~4,2f radians, massing ~4,2f kg, and recoiling with ~4,2f kilonewton-seconds." (tag-gun gun) caliber barrel-length magazine-size firing-rate muzzle-velocity accuracy mass recoil)))
+    (format stream "A ~{~a ~}having caliber ~4,2f mm, a barrel ~4,2f mm long, firing ~a rounds per reload at ~4,2f rounds per second, with a muzzle velocity of ~4,2f m/s, standard divergence of ~4,3f radians, massing ~4,2f kg, and recoiling with ~4,2f kilonewton-seconds." (tag-gun gun) caliber barrel-length magazine-size firing-rate muzzle-velocity accuracy mass recoil)))
